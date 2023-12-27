@@ -5,9 +5,31 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-class ProjectState {
+var PROJECT_STATUS;
+(function (PROJECT_STATUS) {
+    PROJECT_STATUS[PROJECT_STATUS["ACTIVE"] = 0] = "ACTIVE";
+    PROJECT_STATUS[PROJECT_STATUS["FINISHED"] = 1] = "FINISHED";
+})(PROJECT_STATUS || (PROJECT_STATUS = {}));
+class Project {
+    constructor(id, title, description, people, status) {
+        this.id = id;
+        this.title = title;
+        this.description = description;
+        this.people = people;
+        this.status = status;
+    }
+}
+class State {
     constructor() {
         this.listeners = [];
+    }
+    addListener(listenerFn) {
+        this.listeners.push(listenerFn);
+    }
+}
+class ProjectState extends State {
+    constructor() {
+        super();
         this.projects = [];
     }
     static getInstance() {
@@ -17,20 +39,13 @@ class ProjectState {
         this.instance = new ProjectState();
         return this.instance;
     }
-    addListener(listenerFn) {
-        this.listeners.push(listenerFn);
-    }
     addProject(title, description, numOfPeople) {
-        const newProject = {
-            id: Math.random().toString(),
-            title,
-            description,
-            people: numOfPeople,
-        };
+        const newProject = new Project(Math.random().toString(), title, description, numOfPeople, PROJECT_STATUS.ACTIVE);
         this.projects.push(newProject);
         for (const listenerFn of this.listeners) {
             listenerFn(this.projects.slice());
         }
+        console.log(this.projects);
     }
 }
 const projectState = ProjectState.getInstance();
@@ -72,32 +87,37 @@ function autobind(_, _2, descriptor) {
     };
     return newDescriptor;
 }
-class ProjectList {
-    constructor(type) {
-        this.type = type;
-        this.templateEl = (document.getElementById('project-list'));
-        this.hostEl = document.getElementById('app');
-        this.assignedProjects = [];
+class Component {
+    constructor(templateId, hostElementId, insertAtStart, newElementId) {
+        this.templateEl = document.getElementById(templateId);
+        this.hostEl = document.getElementById(hostElementId);
         const importedNode = document.importNode(this.templateEl.content, true);
         this.element = importedNode.firstElementChild;
-        this.element.id = `${this.type}-project`;
+        if (newElementId)
+            this.element.id = newElementId;
+        this.attach(insertAtStart);
+    }
+    attach(insertAtStart) {
+        this.hostEl.insertAdjacentElement(insertAtStart ? 'afterbegin' : 'beforeend', this.element);
+    }
+}
+class ProjectList extends Component {
+    constructor(type) {
+        super('project-list', 'app', false, `${type}-project`);
+        this.type = type;
+        this.assignedProjects = [];
+        this.templateEl = (document.getElementById('project-list'));
         projectState.addListener((projects) => {
-            this.assignedProjects = projects;
+            const relevantProjects = projects.filter((prj) => {
+                if (this.type === 'active')
+                    return prj.status === PROJECT_STATUS.ACTIVE;
+                return prj.status === PROJECT_STATUS.FINISHED;
+            });
+            this.assignedProjects = relevantProjects;
             this.renderProjects();
         });
-        this.attach();
+        this.configure();
         this.renderContent();
-    }
-    renderProjects() {
-        const listEl = (document.getElementById(`${this.type}-projects-list`));
-        for (const projectItem of this.assignedProjects) {
-            const listItem = document.createElement('li');
-            listItem.textContent = projectItem.title;
-            listEl === null || listEl === void 0 ? void 0 : listEl.appendChild(listItem);
-        }
-    }
-    attach() {
-        this.hostEl.insertAdjacentElement('beforeend', this.element);
     }
     renderContent() {
         const listId = `${this.type}-projects-list`;
@@ -105,20 +125,29 @@ class ProjectList {
         this.element.querySelector('h2').textContent =
             this.type.toUpperCase() + ' PROJECTS';
     }
+    configure() { }
+    renderProjects() {
+        const listEl = (document.getElementById(`${this.type}-projects-list`));
+        listEl.innerHTML = '';
+        for (const projectItem of this.assignedProjects) {
+            const listItem = document.createElement('li');
+            listItem.textContent = projectItem.title;
+            listEl === null || listEl === void 0 ? void 0 : listEl.appendChild(listItem);
+        }
+    }
 }
-class ProjectInput {
+class ProjectInput extends Component {
     constructor() {
-        this.templateEl = (document.getElementById('project-input'));
-        this.hostEl = document.getElementById('app');
-        const importedNode = document.importNode(this.templateEl.content, true);
-        this.element = importedNode.firstElementChild;
-        this.element.id = 'user-input';
+        super('project-input', 'app', true, 'user-input');
         this.titleInputEl = this.element.querySelector('#title');
         this.descInputEl = (this.element.querySelector('#description'));
         this.peopleInputEl = (this.element.querySelector('#people'));
         this.configure();
-        this.attach();
     }
+    configure() {
+        this.element.addEventListener('submit', this.submitHandler);
+    }
+    renderContent() { }
     submitHandler(event) {
         event.preventDefault();
         const userInput = this.gatherUserInput();
@@ -161,12 +190,6 @@ class ProjectInput {
         else {
             return [enteredTitle, enteredDescription, +enteredPeople];
         }
-    }
-    configure() {
-        this.element.addEventListener('submit', this.submitHandler);
-    }
-    attach() {
-        this.hostEl.insertAdjacentElement('afterbegin', this.element);
     }
 }
 __decorate([
