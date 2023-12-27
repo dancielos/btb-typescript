@@ -4,6 +4,16 @@
 // 	description: string;
 // 	people: number;
 // }
+interface Draggable {
+	dragStartHAndler(event: DragEvent): void;
+	dragEndHandler(event: DragEvent): void;
+}
+
+interface DragTarget {
+	dragOverHandler(event: DragEvent): void;
+	dropHAndler(event: DragEvent): void;
+	dragLeaveHandler(event: DragEvent): void;
+}
 
 enum PROJECT_STATUS {
 	ACTIVE,
@@ -163,6 +173,48 @@ abstract class Component<T extends HTMLElement, U extends HTMLElement> {
 	abstract renderContent(): void;
 }
 
+class ProjectItem
+	extends Component<HTMLUListElement, HTMLLIElement>
+	implements Draggable
+{
+	private project: Project;
+
+	get persons(): string {
+		if (this.project.people === 1) {
+			return '1 person';
+		}
+		return `${this.project.people} persons`;
+	}
+
+	constructor(hostId: string, project: Project) {
+		super('single-project', hostId, false, project.id);
+		this.project = project;
+
+		this.configure();
+		this.renderContent();
+	}
+
+	dragStartHAndler(event: DragEvent): void {
+		console.log(event);
+	}
+
+	dragEndHandler(_: DragEvent): void {
+		console.log('drag end');
+	}
+
+	@autobind
+	configure(): void {
+		this.element.addEventListener('dragstart', this.dragStartHAndler);
+		this.element.addEventListener('dragend', this.dragEndHandler);
+	}
+
+	renderContent(): void {
+		this.element.querySelector('h2')!.textContent = this.project.title;
+		this.element.querySelector('h3')!.textContent = this.persons + ' assigned';
+		this.element.querySelector('p')!.textContent = this.project.description;
+	}
+}
+
 class ProjectList extends Component<HTMLDivElement, HTMLElement> {
 	assignedProjects: Project[];
 
@@ -200,9 +252,7 @@ class ProjectList extends Component<HTMLDivElement, HTMLElement> {
 		);
 		listEl.innerHTML = '';
 		for (const projectItem of this.assignedProjects) {
-			const listItem = document.createElement('li');
-			listItem.textContent = projectItem.title;
-			listEl?.appendChild(listItem);
+			new ProjectItem(listEl.id, projectItem);
 		}
 	}
 }
